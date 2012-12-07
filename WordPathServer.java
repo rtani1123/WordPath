@@ -27,7 +27,7 @@ public class WordPathServer extends JFrame implements ActionListener {
 	ArrayList<Player> players = new ArrayList<Player>();
 	ArrayList<ArrayList<String>> wordsPlayed = new ArrayList<ArrayList<String>>();  //each player has a list of words
 
-	int clientNumber = 0;
+	int clientCount = 0;
 	volatile String nameToCheck;
 	
 	//boolean control
@@ -125,15 +125,15 @@ public class WordPathServer extends JFrame implements ActionListener {
 			wordsPlayed.get(i).clear();
 		}
 	}
-	public void checkWord(String move, int clientNumber) {
+	public void checkWord(String move, int clientCount) {
 		if(move.length() == 4)
 		{
 			for(int i = 0; i < wordList.size(); i++) {
 				if(move.equals(wordList.get(i))) {
-					if(!wordsPlayed.get(clientNumber).isEmpty()) {
+					if(!wordsPlayed.get(clientCount).isEmpty()) {
 						System.out.println("Not empty. checking");
-						if(checkCharacterProximity(move, wordsPlayed.get(clientNumber).get(wordsPlayed.get(clientNumber).size()-1))) {
-							wordsPlayed.get(clientNumber).add(move);
+						if(checkCharacterProximity(move, wordsPlayed.get(clientCount).get(wordsPlayed.get(clientCount).size()-1))) {
+							wordsPlayed.get(clientCount).add(move);
 							moveGood = true;
 							moveGoodSend = true;
 							return;
@@ -141,7 +141,7 @@ public class WordPathServer extends JFrame implements ActionListener {
 					}
 					else {
 						System.out.println("current player list empty; adding");
-						wordsPlayed.get(clientNumber).add(move);
+						wordsPlayed.get(clientCount).add(move);
 						moveGood = true;
 						moveGoodSend = true;
 						return;
@@ -165,12 +165,12 @@ public class WordPathServer extends JFrame implements ActionListener {
 					System.exit(0);
 				}
 
-				hciList.add(new HandleClientInput(s, clientNumber));
-				hcoList.add(new HandleClientOutput(s, clientNumber));
+				hciList.add(new HandleClientInput(s, clientCount));
+				hcoList.add(new HandleClientOutput(s, clientCount));
 				
-				new Thread(hciList.get(clientNumber)).start();
-				new Thread(hcoList.get(clientNumber)).start();
-				clientNumber++;
+				new Thread(hciList.get(clientCount)).start();
+				new Thread(hcoList.get(clientCount)).start();
+				clientCount++;
 				
 			} catch (Exception e) {
 				System.out.println("got an exception" + e.getMessage());
@@ -228,7 +228,7 @@ public class WordPathServer extends JFrame implements ActionListener {
 						checkNames(nameToCheck);
 					}
 					else if(message.equals("new move")) {
-						checkWord(receiveString(), clientNumber);
+						checkWord(receiveString(), clientCount);
 					}
 					else if(message.equals("get initial names")) {
 						outputs.get(clientNumber).writeObject("sending names");
@@ -260,10 +260,10 @@ public class WordPathServer extends JFrame implements ActionListener {
 		}
 
 		// RECEIVE INTEGER FROM SERVER
-		public Integer receiveInt() {
+		public Integer receiveInt(int index) {
 			Object obj = null;
 			try {
-				while ((obj = inputs.get(clientNumber).readObject()) != null) {
+				while ((obj = inputs.get(index).readObject()) != null) {
 					if (obj instanceof Integer) {
 						return ((Integer) obj);
 					}
@@ -290,6 +290,7 @@ public class WordPathServer extends JFrame implements ActionListener {
 			while(true) {
 				try {
 					if(nameFoundFlag) {
+						System.out.println("name checked");
 						outputs.get(clientNumber).writeObject(new String("name checked"));
 						outputs.get(clientNumber).reset();
 						outputs.get(clientNumber).writeObject(nameFoundInList);
@@ -297,6 +298,7 @@ public class WordPathServer extends JFrame implements ActionListener {
 						nameFoundFlag = false;
 					}
 					else if(moveGoodSend) {
+						System.out.println("good name");
 						if(moveGood) {
 							outputs.get(clientNumber).writeObject("good move");
 						}
@@ -307,19 +309,25 @@ public class WordPathServer extends JFrame implements ActionListener {
 						moveGoodSend = false;
 					}
 					else if(wordsDecided) {
-						outputs.get(clientNumber).writeObject("initial words");
-						outputs.get(clientNumber).reset();
-						outputs.get(clientNumber).writeObject(word1);
-						outputs.get(clientNumber).reset();
-						outputs.get(clientNumber).writeObject(word2);
-						outputs.get(clientNumber).reset();
+						System.out.println("CC " + clientCount);
+						for(int i = 0; i < clientCount; i++) {
+							outputs.get(i).writeObject("initial words");
+							outputs.get(i).reset();
+							outputs.get(i).writeObject(word1);
+							outputs.get(i).reset();
+							outputs.get(i).writeObject(word2);
+							outputs.get(i).reset();
+						}
 						wordsDecided = false;
 					}
 					else if(newPlayerAdded) {
-						outputs.get(clientNumber).writeObject(new String("new player"));
-						outputs.get(clientNumber).reset();
-						outputs.get(clientNumber).writeObject(players.get(players.size()-1).getName());
-						outputs.get(clientNumber).reset();
+						for(int i = 0; i < clientCount; i++) {
+							outputs.get(i).writeObject(new String("new player"));
+							outputs.get(i).reset();
+							outputs.get(i).writeObject(players.get(players.size()-1).getName());
+							outputs.get(i).reset();
+						}
+						newPlayerAdded = false;
 					}
 				}
 				catch(Exception ex) {
@@ -329,10 +337,10 @@ public class WordPathServer extends JFrame implements ActionListener {
 				}
 			}
 		}
-		public String receiveString() {
+		public String receiveString(int index) {
 			Object obj = null;
 			try {
-				while ((obj = inputs.get(clientNumber).readObject()) != null) {
+				while ((obj = inputs.get(index).readObject()) != null) {
 					if (obj instanceof String) {
 						return ((String) obj);
 					}
@@ -345,10 +353,10 @@ public class WordPathServer extends JFrame implements ActionListener {
 		}
 
 		// RECEIVE INTEGER FROM SERVER
-		public Integer receiveInt() {
+		public Integer receiveInt(int index) {
 			Object obj = null;
 			try {
-				while ((obj = inputs.get(clientNumber).readObject()) != null) {
+				while ((obj = inputs.get(index).readObject()) != null) {
 					if (obj instanceof Integer) {
 						return ((Integer) obj);
 					}
