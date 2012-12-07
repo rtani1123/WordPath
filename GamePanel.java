@@ -7,12 +7,14 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
 
 	WordPathClient wpc;
 	JScrollPane entryPane, userPane;
+	JLabel word1Label, word2Label;
 	JPanel appPanel;
 	JPanel playerMovePanel;
+	JPanel wordsPanel;
 	JList entryList;
 	JList userList;
 	JTextField entryField;
-	JButton acceptMoveButton;
+	JButton acceptMoveButton, readyButton;
 	ArrayList<String> userEntries; //list of current valid user moves
 	ArrayList<String> users;
 	String currentMove;
@@ -29,10 +31,18 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
 		playerMovePanel = new JPanel();
 		playerMovePanel.setLayout(new BoxLayout(playerMovePanel, BoxLayout.X_AXIS));
 		
+		wordsPanel = new JPanel();
+		wordsPanel.setLayout(new BoxLayout(wordsPanel, BoxLayout.Y_AXIS));
+		word1Label = new JLabel("Word 1: ");
+		word2Label = new JLabel("Word 2: ");
+		wordsPanel.add(word1Label);
+		wordsPanel.add(word2Label);
+		
 		userEntries = new ArrayList<String>();
 		users = new ArrayList<String>();
 		entryField = new JTextField(4);
 		entryField.requestFocusInWindow();
+		readyButton = new JButton("Ready to Play");
 		
 		acceptMoveButton = new JButton("Accept Move");
 		entryList = new JList(userEntries.toArray());
@@ -40,11 +50,12 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
 		entryList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
 		userList = new JList(users.toArray());
 		entryPane = new JScrollPane(entryList);
-		entryPane.setPreferredSize(new Dimension(200,400));
+		entryPane.setPreferredSize(new Dimension(300,400));
 		userPane = new JScrollPane(userList);
-		userPane.setPreferredSize(new Dimension(200,400));
+		userPane.setPreferredSize(new Dimension(100,400));
 		
 		acceptMoveButton.addActionListener(this);
+		readyButton.addActionListener(this);
 		entryField.addKeyListener(this);
 		
 		//List of User Entries
@@ -55,16 +66,31 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
 		
 		gbc.gridx = 0;
 		gbc.gridy = 0;
-		appPanel.add(entryPane, gbc);
+		appPanel.add(wordsPanel);
+		gbc.gridx = 1;
+		appPanel.add(new JLabel("Current Users:"));
+		gbc.gridx = 0;
 		gbc.gridy = 1;
+		appPanel.add(entryPane, gbc);
+		gbc.gridx = 1;
+		appPanel.add(userPane, gbc);
+		gbc.gridx = 0;
+		gbc.gridy = 2;
+		appPanel.add(readyButton, gbc);
+		updateUsers();
+	}
+	public void allowUserEntry() {
+		gbc.gridy = 2;
 		appPanel.add(playerMovePanel, gbc);
 		playerMovePanel.add(entryField);
 		playerMovePanel.add(acceptMoveButton);
-		gbc.gridy = 0;
-		gbc.gridx = 1;
-		appPanel.add(userPane, gbc);
-		
-		
+	}
+	public void updateUsers() {
+		for(int i = 0; i < wpc.playerList.size(); i++) {
+			users.add(wpc.playerList.get(i).getName());
+		}
+		userList.removeAll();
+		userList.setListData(users.toArray());
 	}
 	public void addWord(String word) {
 		userEntries.add(word);
