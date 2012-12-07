@@ -1,5 +1,6 @@
 import java.io.*;
 import java.net.*;
+import java.util.ArrayList;
 import java.awt.*;
 import java.awt.event.*;
 import javax.swing.*;
@@ -27,6 +28,7 @@ public class WordPathClient extends JFrame implements ActionListener {
 	JTextField nameField;
 	JButton nameAcceptButton;
 	Player player;
+	ArrayList<Player> playerList;
 	JLabel nameStatusLabel;
 	
 	//Boolean control
@@ -39,6 +41,7 @@ public class WordPathClient extends JFrame implements ActionListener {
 	
 	public WordPathClient() {
 		setTitle("Word Paths");
+		playerList = new ArrayList<Player>();
 		cl = new CardLayout();
 		appPanel = new JPanel();
 		namePanel = new NamePanel(this);
@@ -47,13 +50,12 @@ public class WordPathClient extends JFrame implements ActionListener {
 		nameField = new JTextField(20);
 		nameAcceptButton = new JButton("Accept");
 		player = new Player();
-		nameStatusLabel = new JLabel("");
 		
 		add(appPanel);
 		appPanel.setLayout(cl);
 		appPanel.add(namePanel, "Name Panel");
 		appPanel.add(gamePanel, "Game Panel");
-		cl.show(appPanel, "Identity Panel");
+		cl.show(appPanel, "Name Panel");
 
 		attachServer();
 		
@@ -100,8 +102,8 @@ public class WordPathClient extends JFrame implements ActionListener {
 	public static void main(String args[]) {
 		WordPathClient client = new WordPathClient();
 		client.setVisible(true);
-		client.setSize(600, 600);
-		client.setLocation(500, 500);
+		client.setSize(450, 600);
+		client.setLocation(500, 200);
 		client.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 	}
 	
@@ -121,9 +123,12 @@ public class WordPathClient extends JFrame implements ActionListener {
 					if(message.equals("name checked")) {
 						nameFound = receiveBool();
 						if(nameFound) {
-							nameStatusLabel.setText("Bad Name");
+							namePanel.statusLabel.setText("Name already taken");
 						}
 						else {
+							namePanel.statusLabel.setText("");
+							output.writeObject(new String("get initial names"));
+							output.reset();
 							cl.show(appPanel, "Game Panel");
 						}
 					}
@@ -132,6 +137,16 @@ public class WordPathClient extends JFrame implements ActionListener {
 					}
 					else if(message.equals("good move")) {
 						addWord(currentMove);
+					}
+					else if(message.equals("sending names")) {
+						Object obj = null;
+						while ((obj = input.readObject()) != null) {
+							if (obj instanceof ArrayList) {
+								playerList = ((ArrayList) obj);
+								System.out.println("got updated players");
+							}
+						}
+						gamePanel.updateUsers();
 					}
 				}
 				catch(Exception e) {

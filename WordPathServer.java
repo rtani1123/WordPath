@@ -22,13 +22,13 @@ public class WordPathServer extends JFrame implements ActionListener {
 
 	Random generator;
 	String word1, word2;
-	int wordIndex;
+	int wordIndex = -9;
 	ArrayList<String> wordList = new ArrayList<String>();
 	ArrayList<Player> players = new ArrayList<Player>();
 	ArrayList<ArrayList<String>> wordsPlayed = new ArrayList<ArrayList<String>>();  //each player has a list of words
 
 	int clientNumber = 0;
-	String nameToCheck;
+	volatile String nameToCheck;
 	
 	//boolean control
 	volatile boolean nameFoundFlag = false;
@@ -73,9 +73,12 @@ public class WordPathServer extends JFrame implements ActionListener {
 		} catch(Exception exc) {
 			System.out.println("Problem Reading File");
 		}
+		generator = new Random();
 		wordIndex = generator.nextInt() % wordList.size()-1;
+		if(wordIndex < 0) wordIndex = wordIndex*-1;
 		word1 = wordList.get(wordIndex);
 		wordIndex = generator.nextInt() % wordList.size()-1;
+		if(wordIndex < 0) wordIndex = wordIndex*-1;
 		word2 = wordList.get(wordIndex);
 		wordsDecided = true;
 	}
@@ -115,6 +118,11 @@ public class WordPathServer extends JFrame implements ActionListener {
 		}
 		else return false;
 		
+	}
+	public void resetRound() {
+		for(int i = 0; i < players.size(); i++) {
+			wordsPlayed.get(i).clear();
+		}
 	}
 	public void checkWord(String move, int clientNumber) {
 		if(move.length() == 4)
@@ -180,6 +188,7 @@ public class WordPathServer extends JFrame implements ActionListener {
 		}
 		if(!nameFoundInList) {
 			players.add(new Player(name));
+			nameFoundInList = false;
 		}
 		nameFoundFlag = true;
 	}
@@ -217,10 +226,18 @@ public class WordPathServer extends JFrame implements ActionListener {
 					System.out.println("Message from " + clientNumber + " is: " + message);
 					if(message.equals("check names")) {
 						nameToCheck = receiveString();
+						System.out.println("name sent from " + clientNumber + ": " + nameToCheck);
 						checkNames(nameToCheck);
 					}
 					else if(message.equals("new move")) {
 						checkWord(receiveString(), clientNumber);
+					}
+					else if(message.equals("get initial names")) {
+						output.writeObject("sending names");
+						output.reset();
+						output.writeObject(players);
+						output.reset();
+						System.out.println("Player list sent to " + clientNumber);
 					}
 				}
 				catch(Exception e) {
