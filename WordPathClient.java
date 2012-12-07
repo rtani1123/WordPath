@@ -126,6 +126,7 @@ public class WordPathClient extends JFrame implements ActionListener {
 							namePanel.statusLabel.setText("Name already taken");
 						}
 						else {
+							playerList.add(new Player(nameCheck));
 							namePanel.statusLabel.setText("");
 							output.writeObject(new String("get initial names"));
 							output.reset();
@@ -140,11 +141,31 @@ public class WordPathClient extends JFrame implements ActionListener {
 					}
 					else if(message.equals("sending names")) {
 						Object obj = null;
-						while ((obj = input.readObject()) != null) {
-							if (obj instanceof ArrayList) {
-								playerList = ((ArrayList) obj);
-								System.out.println("got updated players");
+						try {
+							while ((obj = input.readObject()) != null) {
+								if (obj instanceof ArrayList) {
+									playerList = ((ArrayList) obj);
+									System.out.println("got updated players");
+									break;
+								}
 							}
+						} catch(Exception exc) {
+							System.out.println("Couldn't read names");
+						}
+						gamePanel.updateUsers();
+					}
+					else if(message.equals("new player")) {
+						Object obj = null;
+						try {
+							while ((obj = input.readObject()) != null) {
+								if (obj instanceof ArrayList) {
+									playerList = ((ArrayList) obj);
+									System.out.println("got updated players");
+									break;
+								}
+							}
+						} catch(Exception exc) {
+							System.out.println("Couldn't read names");
 						}
 						gamePanel.updateUsers();
 					}

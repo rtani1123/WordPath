@@ -88,6 +88,7 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
 	public void updateUsers() {
 		for(int i = 0; i < wpc.playerList.size(); i++) {
 			users.add(wpc.playerList.get(i).getName());
+			System.out.println("users: " + users.get(i));
 		}
 		userList.removeAll();
 		userList.setListData(users.toArray());
