@@ -9,9 +9,10 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.event.*;
 
-public class WordPathServer extends JFrame implements ActionListener {
+public class WordPathServer extends JFrame {
 
 	static final int portNumber = 34344;
+	int timerCounter = 0;
 	ServerSocket ss = null;
 	Socket s = null;
 	ArrayList<HandleClientInput> hciList = new ArrayList<HandleClientInput>();
@@ -20,14 +21,14 @@ public class WordPathServer extends JFrame implements ActionListener {
 	ArrayList<ObjectInputStream> inputs = new ArrayList<ObjectInputStream>();
 	BufferedReader dictionaryRead;
 
-	Random generator;
-	String word1, word2;
-	int wordIndex = -9;
-	ArrayList<String> wordList = new ArrayList<String>();
-	ArrayList<Player> players = new ArrayList<Player>();
-	ArrayList<ArrayList<String>> wordsPlayed = new ArrayList<ArrayList<String>>();  //each player has a list of words
+	volatile Random generator;
+	volatile String word1, word2;
+	volatile int wordIndex = -9;
+	volatile ArrayList<String> wordList = new ArrayList<String>();
+	volatile ArrayList<Player> players = new ArrayList<Player>();
+	volatile ArrayList<ArrayList<String>> wordsPlayed = new ArrayList<ArrayList<String>>();  //each player has a list of words
 
-	int clientCount = 0;
+	volatile int clientCount = 0;
 	volatile String nameToCheck;
 	
 	//boolean control
@@ -37,7 +38,13 @@ public class WordPathServer extends JFrame implements ActionListener {
 	volatile boolean moveGood = false;
 	volatile boolean wordsDecided = false;
 	volatile boolean newPlayerAdded = false;
+	volatile boolean startCountDown = false;
+	volatile boolean sendNextNumber = false;
+	volatile boolean countDownStarted = false;
+	volatile boolean gameOngoing = false;
 	
+	volatile int countDown = 10;
+	ArrayList<Boolean> clientReady = new ArrayList<Boolean>();
 	
 	public WordPathServer() {
 		players = new ArrayList<Player>();
@@ -52,7 +59,8 @@ public class WordPathServer extends JFrame implements ActionListener {
 			System.out.println("Port Number in Use");
 			System.exit(0);
 		}
-
+		RunCountDownCheck rcdc = new RunCountDownCheck();
+		new Thread(rcdc).start();
 		getClients();
 
 	}
@@ -84,7 +92,6 @@ public class WordPathServer extends JFrame implements ActionListener {
 		wordsDecided = true;
 	}
 	public boolean checkCharacterProximity(String a, String b) {
-		System.out.println("checking");
 		char[] aList = a.toCharArray();
 		char[] bList = b.toCharArray();
 		for(int i = 0; i < aList.length; i++) {
@@ -157,6 +164,7 @@ public class WordPathServer extends JFrame implements ActionListener {
 			try {
 				s = ss.accept();
 				wordsPlayed.add(new ArrayList<String>());
+				clientReady.add(false);
 				try {
 					outputs.add(new ObjectOutputStream(s.getOutputStream()));
 					inputs.add(new ObjectInputStream(s.getInputStream()));
@@ -180,7 +188,22 @@ public class WordPathServer extends JFrame implements ActionListener {
 			System.out.println("got a connection");
 		}// end while
 	}
-
+	public void checkReady() {
+		boolean allClientsReady = true;
+		
+		for(int i = 0; i < clientCount; i++) {
+			//System.out.println("" + i + clientReady.get(i));
+			if(!clientReady.get(i))
+				allClientsReady = false;
+		}
+		
+		
+		if(allClientsReady == true && clientCount > 0 && !countDownStarted && !gameOngoing) {
+			System.out.println("start count down");
+			startCountDown = true;
+			countDownStarted = true;
+		}
+	}
 	public void checkNames(String name) {
 		for(int i = 0; i < players.size(); i++) {
 			if(name == players.get(i).getName()) {
@@ -194,9 +217,7 @@ public class WordPathServer extends JFrame implements ActionListener {
 		}
 		nameFoundFlag = true;
 	}
-	public void actionPerformed(ActionEvent e) {
-
-	}
+	
 
 	public static void main(String[] args) {
 		WordPathServer wps = new WordPathServer();
@@ -206,6 +227,26 @@ public class WordPathServer extends JFrame implements ActionListener {
 		wps.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 	}
 
+	class RunCountDownCheck implements Runnable {
+		public void run() {
+			while(true) {
+				try {
+					checkReady();
+					if(countDownStarted) {
+						sendNextNumber = true;
+
+					}
+				} catch(Exception exc) {
+					exc.printStackTrace();
+				}
+				try {
+					Thread.sleep(1000);
+				} catch(Exception exc) {
+					System.out.println("timer error");
+				}
+			}
+		}
+	}
 	class HandleClientInput implements Runnable {
 		Socket mySocket;
 		int clientNumber;
@@ -228,14 +269,19 @@ public class WordPathServer extends JFrame implements ActionListener {
 						checkNames(nameToCheck);
 					}
 					else if(message.equals("new move")) {
-						checkWord(receiveString(), clientCount);
+						checkWord(receiveString(), clientNumber);
 					}
 					else if(message.equals("get initial names")) {
 						outputs.get(clientNumber).writeObject("sending names");
-						outputs.get(clientNumber).reset();
 						outputs.get(clientNumber).writeObject(players);
-						outputs.get(clientNumber).reset();
-						System.out.println("Player list sent to " + clientNumber);
+					}
+					else if(message.equals("ready")) {
+						clientReady.set(clientNumber, true);
+					}
+					else if(message.equals("game started")) {
+						countDownStarted = false;
+						sendNextNumber = false;
+						gameOngoing = true;
 					}
 				}
 				catch(Exception e) {
@@ -298,11 +344,12 @@ public class WordPathServer extends JFrame implements ActionListener {
 						nameFoundFlag = false;
 					}
 					else if(moveGoodSend) {
-						System.out.println("good name");
 						if(moveGood) {
+							System.out.println("good word");
 							outputs.get(clientNumber).writeObject("good move");
 						}
 						else if(!moveGood) {
+							System.out.println("bad word");
 							outputs.get(clientNumber).writeObject("bad move");
 						}
 						outputs.get(clientNumber).reset();
@@ -324,10 +371,28 @@ public class WordPathServer extends JFrame implements ActionListener {
 						for(int i = 0; i < clientCount; i++) {
 							outputs.get(i).writeObject(new String("new player"));
 							outputs.get(i).reset();
-							outputs.get(i).writeObject(players.get(players.size()-1).getName());
+							outputs.get(i).writeObject(players);
 							outputs.get(i).reset();
 						}
 						newPlayerAdded = false;
+					}
+					else if(startCountDown) {
+						for(int i = 0; i < clientCount; i++) {
+							outputs.get(i).writeObject("count");
+							outputs.get(i).reset();
+							outputs.get(i).writeObject(countDown);
+						}
+						startCountDown = false;
+					}
+					else if(sendNextNumber) {
+						for(int i = 0; i < clientCount; i++) {
+							countDown--;
+							outputs.get(i).writeObject("next number");
+							outputs.get(i).reset();
+							outputs.get(i).writeObject(countDown);
+							outputs.get(i).reset();
+						}
+						sendNextNumber = false;
 					}
 				}
 				catch(Exception ex) {

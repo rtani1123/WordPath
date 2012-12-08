@@ -34,7 +34,9 @@ public class WordPathClient extends JFrame implements ActionListener {
 	//Boolean control
 	volatile boolean nameCheckFlag = false;
 	volatile boolean nameFound = false;
+	volatile boolean sendReady = false;
 	volatile String nameCheck = null;
+	volatile boolean gameStartedSend = false;
 	
 	volatile boolean newMove = false;
 	volatile String currentMove;
@@ -139,6 +141,10 @@ public class WordPathClient extends JFrame implements ActionListener {
 					else if(message.equals("good move")) {
 						addWord(currentMove);
 					}
+					else if(message.equals("initial words")) {
+						gamePanel.word1 = receiveString();
+						gamePanel.word2 = receiveString();
+					}
 					else if(message.equals("sending names")) {
 						Object obj = null;
 						try {
@@ -167,7 +173,15 @@ public class WordPathClient extends JFrame implements ActionListener {
 						} catch(Exception exc) {
 							System.out.println("Couldn't read names");
 						}
+						System.out.println("got new player");
 						gamePanel.updateUsers();
+					}
+					else if(message.equals("count")) {
+						gamePanel.displayTimer(gamePanel.timer--);
+					}
+					else if(message.equals("next number")) {
+						gamePanel.setTimer(gamePanel.timer--);
+						gamePanel.checkTime();
 					}
 				}
 				catch(Exception e) {
@@ -244,6 +258,16 @@ public class WordPathClient extends JFrame implements ActionListener {
 						output.writeObject(currentMove);
 						output.reset();
 						newMove = false;
+					}
+					else if(sendReady) {
+						output.writeObject("ready");
+						output.reset();
+						sendReady = false;
+					}
+					else if(gameStartedSend) {
+						output.writeObject("game started");
+						output.reset();
+						gameStartedSend = false;
 					}
 				}
 				catch(Exception ex) {

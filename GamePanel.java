@@ -7,7 +7,7 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
 
 	WordPathClient wpc;
 	JScrollPane entryPane, userPane;
-	JLabel word1Label, word2Label;
+	JLabel word1Label, word2Label, timerLabel, currentUsersLabel;
 	JPanel appPanel;
 	JPanel playerMovePanel;
 	JPanel wordsPanel;
@@ -18,6 +18,8 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
 	ArrayList<String> userEntries; //list of current valid user moves
 	ArrayList<String> users;
 	String currentMove;
+	String word1, word2;
+	int timer = 10;
 	
 	GridBagConstraints gbc;
 	
@@ -38,6 +40,8 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
 		wordsPanel.add(word1Label);
 		wordsPanel.add(word2Label);
 		
+		timerLabel = new JLabel ("Game Starting in: ");
+		currentUsersLabel = new JLabel("Current Users:");
 		userEntries = new ArrayList<String>();
 		users = new ArrayList<String>();
 		entryField = new JTextField(4);
@@ -68,7 +72,7 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
 		gbc.gridy = 0;
 		appPanel.add(wordsPanel);
 		gbc.gridx = 1;
-		appPanel.add(new JLabel("Current Users:"));
+		appPanel.add(currentUsersLabel);
 		gbc.gridx = 0;
 		gbc.gridy = 1;
 		appPanel.add(entryPane, gbc);
@@ -79,17 +83,59 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
 		appPanel.add(readyButton, gbc);
 		updateUsers();
 	}
+	public void displayTimer(int time) {
+		appPanel.remove(wordsPanel);
+		appPanel.remove(currentUsersLabel);
+		gbc.gridx = 0;
+		gbc.gridy = 0;
+		appPanel.add(timerLabel, gbc);
+		gbc.gridx = 1;
+		appPanel.add(currentUsersLabel, gbc);
+		
+	}
+	public void displayWordsPanel() {
+		appPanel.remove(timerLabel);
+		appPanel.remove(currentUsersLabel);
+		gbc.gridx = 0;
+		gbc.gridy = 0;
+		word1Label.setText("Word 1: " + word1);
+		word2Label.setText("Word 2: " + word2);
+		appPanel.add(wordsPanel, gbc);
+		gbc.gridx = 1;
+		appPanel.add(currentUsersLabel, gbc);
+		System.out.println("panel displayed");
+	}
+	public void setTimer(int time) {
+		timerLabel.setText("Game start in: " + time + " seconds");
+
+	}
+	public void checkTime() {
+		if(timer < 0) {
+			startGame();
+		}
+	}
+	public void startGame() {
+		displayWordsPanel();
+		allowUserEntry();
+		wpc.gameStartedSend = true;
+		addWord(word1);
+	}
 	public void allowUserEntry() {
+		gbc.gridx = 0;
 		gbc.gridy = 2;
 		appPanel.add(playerMovePanel, gbc);
 		playerMovePanel.add(entryField);
 		playerMovePanel.add(acceptMoveButton);
+		System.out.println("allowing user entry");
 	}
 	public void updateUsers() {
+		users.clear();
 		for(int i = 0; i < wpc.playerList.size(); i++) {
-			users.add(wpc.playerList.get(i).getName());
+			//System.out.println(wpc.playerList.get(i).getName());
+				users.add(wpc.playerList.get(i).getName());
 			System.out.println("users: " + users.get(i));
 		}
+		System.out.println("end");
 		userList.removeAll();
 		userList.setListData(users.toArray());
 	}
@@ -113,6 +159,10 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
 			wpc.newMove = true;
 			wpc.currentMove = currentMove;
 			entryField.setText("");
+		}
+		else if(e.getSource() == readyButton) {
+			appPanel.remove(readyButton);
+			wpc.sendReady = true;
 		}
 	}
 }
