@@ -103,7 +103,6 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
 		appPanel.add(wordsPanel, gbc);
 		gbc.gridx = 1;
 		appPanel.add(currentUsersLabel, gbc);
-		System.out.println("panel displayed");
 	}
 	public void setTimer(int time) {
 		timerLabel.setText("Game start in: " + time + " seconds");
@@ -126,16 +125,15 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
 		appPanel.add(playerMovePanel, gbc);
 		playerMovePanel.add(entryField);
 		playerMovePanel.add(acceptMoveButton);
-		System.out.println("allowing user entry");
 	}
 	public void updateUsers() {
 		users.clear();
 		for(int i = 0; i < wpc.playerList.size(); i++) {
 			//System.out.println(wpc.playerList.get(i).getName());
 				users.add(wpc.playerList.get(i).getName());
-			System.out.println("users: " + users.get(i));
+			//System.out.println("users: " + users.get(i));
 		}
-		System.out.println("end");
+		//System.out.println("end");
 		userList.removeAll();
 		userList.setListData(users.toArray());
 	}
@@ -145,6 +143,13 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
 		entryList.setListData(userEntries.toArray());
 	}
 
+	public void declareWinner(String name, int numMoves) {
+		appPanel.remove(playerMovePanel);
+		gbc.gridx = 0;
+		gbc.gridy = 2;
+		appPanel.add(new JLabel("Winner is: " + name + " with " + numMoves + " moves."), gbc);
+		revalidate();
+	}
 	public void keyPressed(KeyEvent e) {
 		if(e.getKeyCode() == KeyEvent.VK_ENTER){
 			acceptMoveButton.doClick();
@@ -159,6 +164,10 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
 			wpc.newMove = true;
 			wpc.currentMove = currentMove;
 			entryField.setText("");
+			if(currentMove.equals(word2)) {
+				wpc.playerWon = true;
+				
+			}
 		}
 		else if(e.getSource() == readyButton) {
 			appPanel.remove(readyButton);

@@ -20,6 +20,7 @@ public class WordPathServer extends JFrame {
 	ArrayList<ObjectOutputStream> outputs = new ArrayList<ObjectOutputStream>();
 	ArrayList<ObjectInputStream> inputs = new ArrayList<ObjectInputStream>();
 	BufferedReader dictionaryRead;
+	volatile String winner;
 
 	volatile Random generator;
 	volatile String word1, word2;
@@ -42,6 +43,13 @@ public class WordPathServer extends JFrame {
 	volatile boolean sendNextNumber = false;
 	volatile boolean countDownStarted = false;
 	volatile boolean gameOngoing = false;
+	volatile boolean sendNames = false;
+	volatile boolean sendWords = false;
+	volatile boolean sendClientNumber = false;
+	volatile boolean gameWon = false;
+	
+	volatile int nameCheckIndex = 0;
+	volatile int numberMoves = 0;
 	
 	volatile int countDown = 10;
 	ArrayList<Boolean> clientReady = new ArrayList<Boolean>();
@@ -94,12 +102,7 @@ public class WordPathServer extends JFrame {
 	public boolean checkCharacterProximity(String a, String b) {
 		char[] aList = a.toCharArray();
 		char[] bList = b.toCharArray();
-		for(int i = 0; i < aList.length; i++) {
-			System.out.println(aList[i]);
-		}
-		for(int i = 0; i < bList.length; i++) {
-			System.out.println(bList[i]);
-		}
+	
 		if(!(aList[0] == bList[0])) {
 			if(!(aList[1] == bList[1]))
 				return false;
@@ -163,6 +166,7 @@ public class WordPathServer extends JFrame {
 		while (true) {
 			try {
 				s = ss.accept();
+				
 				wordsPlayed.add(new ArrayList<String>());
 				clientReady.add(false);
 				try {
@@ -179,6 +183,7 @@ public class WordPathServer extends JFrame {
 				new Thread(hciList.get(clientCount)).start();
 				new Thread(hcoList.get(clientCount)).start();
 				clientCount++;
+				sendClientNumber = true;
 				
 			} catch (Exception e) {
 				System.out.println("got an exception" + e.getMessage());
@@ -206,7 +211,8 @@ public class WordPathServer extends JFrame {
 	}
 	public void checkNames(String name) {
 		for(int i = 0; i < players.size(); i++) {
-			if(name == players.get(i).getName()) {
+			if(name.equals(players.get(i).getName())) {
+				System.out.println("name already in use");
 				nameFoundInList = true;
 			}
 		}
@@ -254,26 +260,33 @@ public class WordPathServer extends JFrame {
 		public HandleClientInput(Socket s, int clientNumber) {
 			mySocket = s;
 			this.clientNumber = clientNumber;
-			System.out.println("Input Server Started");
+			System.out.println("Input Server Started " + clientNumber);
 		}
 
 		public void run() {
 			String message;
 			while(true) {
 				try {
-					message = receiveString();
+					message = receiveString(clientNumber);
 					System.out.println("Message from " + clientNumber + " is: " + message);
-					if(message.equals("check names")) {
-						nameToCheck = receiveString();
+					if(message.contains("check names")) {
+						for(int i = 0; i < clientCount; i++) {
+							if(message.contains(""+i))
+								nameCheckIndex = i;
+						}
+						nameToCheck = receiveString(clientNumber);
 						System.out.println("Name sent from " + clientNumber + ": " + nameToCheck);
 						checkNames(nameToCheck);
 					}
 					else if(message.equals("new move")) {
-						checkWord(receiveString(), clientNumber);
+						checkWord(receiveString(clientNumber), clientNumber);
 					}
 					else if(message.equals("get initial names")) {
-						outputs.get(clientNumber).writeObject("sending names");
-						outputs.get(clientNumber).writeObject(players);
+						sendNames = true;
+						
+					}
+					else if(message.equals("request initial words")) {
+						sendWords = true;
 					}
 					else if(message.equals("ready")) {
 						clientReady.set(clientNumber, true);
@@ -283,6 +296,15 @@ public class WordPathServer extends JFrame {
 						sendNextNumber = false;
 						gameOngoing = true;
 					}
+					else if(message.contains("player won")) {
+						for(int i = 0; i < clientCount; i++) {
+							if(message.contains(""+i)) {
+								winner = players.get(i).getName();
+								gameWon = true;
+								numberMoves = receiveInt(clientNumber);
+							}
+						}
+					}
 				}
 				catch(Exception e) {
 					e.printStackTrace();
@@ -290,10 +312,10 @@ public class WordPathServer extends JFrame {
 				}
 			}
 		}
-		public String receiveString() {
+		public String receiveString(int index) {
 			Object obj = null;
 			try {
-				while ((obj = inputs.get(clientNumber).readObject()) != null) {
+				while ((obj = inputs.get(index).readObject()) != null) {
 					if (obj instanceof String) {
 						return ((String) obj);
 					}
@@ -329,63 +351,77 @@ public class WordPathServer extends JFrame {
 			mySocket = s;
 			this.clientNumber = clientNumber;
 
-			System.out.println("Output Server Started");
+			System.out.println("Output Server Started " + clientNumber);
 		}
 
 		public void run() {
 			while(true) {
 				try {
+					//send message to client saying if a name exists or not.
 					if(nameFoundFlag) {
-						System.out.println("name checked");
-						outputs.get(clientNumber).writeObject(new String("name checked"));
-						outputs.get(clientNumber).reset();
-						outputs.get(clientNumber).writeObject(nameFoundInList);
-						outputs.get(clientNumber).reset();
+						System.out.println("name checked. sending " + nameCheckIndex);
+						outputs.get(nameCheckIndex).writeObject(new String("name checked"));
+						outputs.get(nameCheckIndex).writeObject(nameFoundInList);
 						nameFoundFlag = false;
 					}
+					//sends a list of players (for names)
+					else if(sendNames) {
+						System.out.println("names to be sent. sending to " + clientCount + " user");
+						for(int i = 0; i < clientCount; i++) {
+							System.out.println("sending names " + i);
+							outputs.get(i).writeObject("sending names");
+							outputs.get(i).writeObject(players);
+						}
+						sendNames = false;	
+					}
+					//if move was good.
 					else if(moveGoodSend) {
 						if(moveGood) {
-							System.out.println("good word");
+							System.out.println("good word sent to " + clientNumber);
 							outputs.get(clientNumber).writeObject("good move");
 						}
 						else if(!moveGood) {
-							System.out.println("bad word");
+							System.out.println("bad word sent to " + clientNumber);
 							outputs.get(clientNumber).writeObject("bad move");
 						}
 						outputs.get(clientNumber).reset();
 						moveGoodSend = false;
 					}
+					//sends initial words
 					else if(wordsDecided) {
-						System.out.println("CC " + clientCount);
+						System.out.println("words decided. sending to " + clientCount + "user");
 						for(int i = 0; i < clientCount; i++) {
+							System.out.println("Sending initial words to " + i);
 							outputs.get(i).writeObject("initial words");
-							outputs.get(i).reset();
 							outputs.get(i).writeObject(word1);
-							outputs.get(i).reset();
 							outputs.get(i).writeObject(word2);
-							outputs.get(i).reset();
 						}
 						wordsDecided = false;
 					}
+					//new player has been added to the game.  Sends names
 					else if(newPlayerAdded) {
+						System.out.println("count " + clientCount + " user");
 						for(int i = 0; i < clientCount; i++) {
+							System.out.println("sending names to " + i);
 							outputs.get(i).writeObject(new String("new player"));
-							outputs.get(i).reset();
 							outputs.get(i).writeObject(players);
-							outputs.get(i).reset();
 						}
 						newPlayerAdded = false;
 					}
+					//starts the countdown on timer for all clients
 					else if(startCountDown) {
 						for(int i = 0; i < clientCount; i++) {
+							System.out.println("countdown for " + i);
 							outputs.get(i).writeObject("count");
 							outputs.get(i).reset();
 							outputs.get(i).writeObject(countDown);
 						}
 						startCountDown = false;
 					}
+					//iterates to next number in the timer.
 					else if(sendNextNumber) {
 						for(int i = 0; i < clientCount; i++) {
+							System.out.println("sending next number in countdown to " + i);
 							countDown--;
 							outputs.get(i).writeObject("next number");
 							outputs.get(i).reset();
@@ -393,6 +429,26 @@ public class WordPathServer extends JFrame {
 							outputs.get(i).reset();
 						}
 						sendNextNumber = false;
+					}
+					else if(sendWords) {
+						System.out.println("sending initial words to " + clientNumber);
+						outputs.get(clientNumber).writeObject("initial words");
+						outputs.get(clientNumber).writeObject(word1);
+						outputs.get(clientNumber).writeObject(word2);
+						sendWords = false;
+					}
+					else if(sendClientNumber) {
+						outputs.get(clientNumber).writeObject("client number");
+						outputs.get(clientNumber).writeObject(clientCount-1);
+						sendClientNumber = false;
+					}
+					else if(gameWon) {
+						for(int i = 0; i < clientCount; i++) {
+							outputs.get(i).writeObject("game won");
+							outputs.get(i).writeObject(winner);
+							outputs.get(i).writeObject(numberMoves);
+						}
+						gameWon = false;
 					}
 				}
 				catch(Exception ex) {

@@ -37,9 +37,13 @@ public class WordPathClient extends JFrame implements ActionListener {
 	volatile boolean sendReady = false;
 	volatile String nameCheck = null;
 	volatile boolean gameStartedSend = false;
+	volatile boolean clientConnected = true;
+	volatile boolean playerWon = false;
 	
 	volatile boolean newMove = false;
 	volatile String currentMove;
+	volatile String winnerName;
+	volatile int numberMoves = 0;
 	
 	public WordPathClient() {
 		setTitle("Word Paths");
@@ -58,10 +62,6 @@ public class WordPathClient extends JFrame implements ActionListener {
 		appPanel.add(namePanel, "Name Panel");
 		appPanel.add(gamePanel, "Game Panel");
 		cl.show(appPanel, "Name Panel");
-
-		attachServer();
-		
-		
 		
 		
 	}
@@ -88,9 +88,11 @@ public class WordPathClient extends JFrame implements ActionListener {
 		hsout = new HandleServerOutput(s);
 		new Thread(hsin).start();
 		new Thread(hsout).start();
+		clientConnected = true;
 	}
 	
 	public void checkNames(String name) {
+		attachServer();
 		nameCheckFlag = true;
 		nameCheck = name;
 	}
@@ -120,7 +122,7 @@ public class WordPathClient extends JFrame implements ActionListener {
 			while(true) {
 				try {
 					message = receiveString();
-					System.out.println("message is: " + message);
+					System.out.println("Message from Server is: " + message);
 					
 					if(message.equals("name checked")) {
 						nameFound = receiveBool();
@@ -135,6 +137,9 @@ public class WordPathClient extends JFrame implements ActionListener {
 							cl.show(appPanel, "Game Panel");
 						}
 					}
+					else if(message.equals("client number")) {
+						clientNumber = receiveInt();
+					}
 					else if(message.equals("bad move")) {
 						
 					}
@@ -143,7 +148,9 @@ public class WordPathClient extends JFrame implements ActionListener {
 					}
 					else if(message.equals("initial words")) {
 						gamePanel.word1 = receiveString();
+						System.out.println("received " + gamePanel.word1);
 						gamePanel.word2 = receiveString();
+						System.out.println("received " + gamePanel.word2);
 					}
 					else if(message.equals("sending names")) {
 						Object obj = null;
@@ -182,6 +189,11 @@ public class WordPathClient extends JFrame implements ActionListener {
 					else if(message.equals("next number")) {
 						gamePanel.setTimer(gamePanel.timer--);
 						gamePanel.checkTime();
+					}
+					else if(message.equals("game won")) {
+						winnerName = receiveString();
+						numberMoves = receiveInt();
+						gamePanel.declareWinner(winnerName, numberMoves);
 					}
 				}
 				catch(Exception e) {
@@ -243,9 +255,14 @@ public class WordPathClient extends JFrame implements ActionListener {
 			while(true) {
 				try {
 					//System.out.println(nameCheckFlag);
-					if(nameCheckFlag == true) {
+					if(clientConnected) {
+						output.writeObject(new String("request initial words"));
+						output.reset();
+						clientConnected = false;
+					}
+					else if(nameCheckFlag == true) {
 						System.out.println("message sent server: check names");
-						output.writeObject(new String("check names"));
+						output.writeObject(new String("check names " + clientNumber));
 						
 						output.reset();
 						output.writeObject(nameCheck);
@@ -268,6 +285,13 @@ public class WordPathClient extends JFrame implements ActionListener {
 						output.writeObject("game started");
 						output.reset();
 						gameStartedSend = false;
+					}
+					else if(playerWon) {
+						output.writeObject("player won " + clientNumber);
+						output.reset();
+						output.writeObject(gamePanel.userEntries.size());
+						output.reset();
+						playerWon = false;
 					}
 				}
 				catch(Exception ex) {
